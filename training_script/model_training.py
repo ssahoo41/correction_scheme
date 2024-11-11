@@ -1,8 +1,11 @@
+import csv
+from datetime import datetime
 import os
 import sys
 import json
 import time
 import pickle
+import platform
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold
@@ -10,12 +13,87 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Lasso, Ridge, LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 
-Ha_to_eV = 27.21136
 
-def load_json(file_path):
-    """Loads data from a JSON file."""
-    with open(file_path, 'r') as f:
-        return json.load(f)
+class EnergyCorrectionFitter:
+    def __init__(
+        self,
+        mcsh,
+        rcut,
+        overall_sig,
+        cutoff_sig,
+        ccsdt_file,
+        pbe_file,
+        atomic_number_file,
+        count_path,
+        stdscale=None,
+    ):
+        """Initialize EnergyCalculator with instance variables since we need to keep referencing these for logging"""
+        # Constants
+        self.Ha_to_eV = 27.21136
+
+        # Input files and paths
+        self._ccsdt_file = ccsdt_file
+        self._pbe_file = pbe_file
+        self._atomic_number_file = atomic_number_file
+        self._count_path = count_path
+
+        # parameters for logging
+        self._mcsh = mcsh
+        self._rcut = rcut
+        self._overall_sig = overall_sig
+        self._cutoff_sig = cutoff_sig
+        self._stdscale = stdscale
+
+        # Data
+        self._ccsdt_energy = None
+        self._pbe_energy = None
+        self._atomic_number_dict = None
+        self._target_dict = None
+        self._final_count_arr = None
+        self._target = None
+        self._systems = None
+
+        # Model path with platform, date, and system information to track experiment results
+        # Get Python version, OS, and datetime
+        python_version = f"Python {sys.version.split(' ')[0]}"
+        os_name = platform.system()
+        now = datetime.now()
+        today = now.strftime("%Y-%m-%d")
+        time_prefix = now.strftime("%H-%M")
+
+        # Construct the directory prefix
+        model_filepath_prefix = (
+            f"{python_version} | {os_name} | {today} | {time_prefix}"
+        )
+
+        self.model_filepath = os.path.join(
+            model_filepath_prefix,
+            f"mcsh_{mcsh}_rcut_{rcut}",
+            f"stdscaler_{stdscale}",
+            f"model_all_{overall_sig}_sys_{sys_sig}_lasso",
+        )
+        os.makedirs(self.model_filepath, exist_ok=True)
+
+    # Ha_to_eV = 27.21136
+
+    def load_json(self, file_path):
+        """Loads data from a JSON file and raises errors if file not found or decode error arise"""
+        try:
+            with open(file_path, "r") as f:
+                return json.load(f)
+        except FileNotFoundError:
+            print(f"File not found: {file_path}")
+            raise
+        except json.JSONDecodeError:
+            print(f"Error decoding JSON from file: {file_path}")
+            raise
+
+# Ha_to_eV = 27.21136
+
+# def load_json(file_path):
+#     """Loads data from a JSON file."""
+#     with open(file_path, 'r') as f:
+#         return json.load(f)
 
 def calculate_formation_energy(energy_dict, atoms_count_array):
     """Calculates formation energy from energy dictionary and atoms count array."""
