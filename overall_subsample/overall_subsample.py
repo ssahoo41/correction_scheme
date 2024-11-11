@@ -23,7 +23,7 @@ print(f"System cutoff sig: {system_cutoff_sig}")
 print(f"Standard scale: {std_scale}")
 
 base_dir = "/storage/cedar/cedar0/cedarp-amedford6-0/ssahoo41/exact_exchange_work/"
-subsample_dir = "NNS_subsampling/system_subsample/subsampled_folder_v2_False"
+subsample_dir = "NNS_subsampling/system_subsample/subsampled_folder_vac_False"
 sub_dir = f"molecules/std_scale_True/X_system_training_subsample/cutoff_{system_cutoff_sig}"
 full_path = os.path.join(base_dir, subsample_dir, sub_dir)
 data_list = []
@@ -37,12 +37,12 @@ for file in os.listdir(full_path):
 overall_data = np.vstack(data_list)
 print(f"Length of data before subsampling: {overall_data.shape}")
 
-folder_path = f"./overall_subsample_mcsh_4_{std_scale}/" #standard scaling of overall subsample
+folder_path = f"./overall_subsample_{std_scale}/" #standard scaling of overall subsample
 os.makedirs(folder_path, exist_ok=True)
 
 subsampled_data_filename = os.path.join(folder_path, f"subsampled_{overall_cutoff_sig}_system_{system_cutoff_sig}.pkl")
 subsampled_feature_arr, indices = subsampling(overall_data, cutoff_sig=overall_cutoff_sig, rate=0.1, method = "pykdtree",\
-                                    verbose = 2, standard_scale=True) #returns unscaled features 
+                                    verbose = 2, standard_scale=std_scale) #returns unscaled features 
 
 pickle.dump(subsampled_feature_arr, open(subsampled_data_filename, "wb" ) )
 end = time.time()

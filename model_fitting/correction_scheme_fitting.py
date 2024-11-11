@@ -40,7 +40,7 @@ def calculate_target_variable(ccsdt_energy, pbe_energy, atomic_number_dict):
     return target_dict
 
 def sort_count_array(count_file, target_dict):
-    """Sorts count array based on the order of molecules in CCSDT formation energy dictionary."""
+    """Sorts count array based on the order of molecules in CCS-DT formation energy dictionary."""
     df = pd.read_csv(count_file, header=None)
     target_dict = {key: target_dict[key] for key in target_dict if key in df[1].values} # Filter out molecules not in target_dict
 
@@ -75,11 +75,17 @@ def perform_cross_validation(alpha, model_filepath, final_count_arr, target, sys
         X_train = scaler.fit_transform(X_train)
         X_test = scaler.transform(X_test)
         y_train, y_test = target[train_index], target[test_index]
+
         # Fit the LASSO model
         reg = Lasso(alpha=alpha, fit_intercept=False, max_iter=10000, selection='random')
         reg.fit(X_train, y_train)
+
+        # store the number of non-zero parameters
+        metrics['non_zero_parameters'].append(np.sum(reg.coef_ != 0))
+
         y_test_pred = reg.predict(X_test)
-        max_test_idx = np.argmax(abs(y_test))
+        # find the index of the maximum y_test value in this fold
+        max_test_idx = np.argmax(y_test)
         max_y_test.append(y_test[max_test_idx])
         final_error_max_y_test.append(y_test[max_test_idx] - y_test_pred[max_test_idx])
         molecule_max_error.append(systems[test_index[max_test_idx]])
@@ -99,8 +105,7 @@ def perform_cross_validation(alpha, model_filepath, final_count_arr, target, sys
     metrics['max_y_test'] = max_y_test
     metrics['final_error_max_y_test'] = final_error_max_y_test
     metrics['molecule_max_error'] = molecule_max_error
-    metrics['non_zero_parameters'].append(np.count_nonzero(reg.coef_))
-    
+
     return metrics
 
 def collect_metrics(metrics_dict, prefix, y_true, y_pred):
@@ -135,13 +140,8 @@ def log_results(filename, message):
 
 def model_fitting(model_filepath, final_count_arr, target, systems):
     """ Fit a LASSO model to the data and return the model and the predictions."""
-    # Generate alpha values for fine-tuning around 1e-3
-    #alpha_list = [10**exp for exp in range(-4, -2, 1)]
-    #alpha_list += [1e-3 + i*(1e-4) for i in range(-5, 6)]  # Adding more granularity around 1e-3
-
-    #print(alpha_list)
     alpha_list = [10**exp for exp in range(-8,3)] 
-    #alpha_list = [5e-6, 7.5e-6, 1e-5, 2.5e-5, 5e-5]
+
     for alpha in alpha_list:
         start_time = time.time()
         alpha_path = os.path.join(model_filepath, f"alpha_{alpha}")
@@ -165,7 +165,7 @@ def main(overall_sig, cutoff_sig, ccsdt_file, pbe_file, atomic_number_file, coun
     print(np.mean(abs(np.array(list(target_dict.values())))))
     count_file = os.path.join(count_path, f"count_array_overall_{overall_sig}_system_{cutoff_sig}.csv")
     final_count_arr, target, systems = sort_count_array(count_file, target_dict)
-    print(final_count_arr.shape)
+
     # call the function for LASSO regression
     model_fitting(lasso_model_filepath, final_count_arr, target, systems)
     return
@@ -175,7 +175,7 @@ if __name__ == "__main__":
     ccsdt_file = "ccsdt_energy.json"
     pbe_file = "pbe_energy.json"
     atomic_number_file = "atoms_count_mat.json"
-    count_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/NNS_subsampling/partitioning_scheme/pbe_csv_true"
+    count_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/NNS_subsampling/partitioning_scheme/n_vac_csv"
     if len(sys.argv) < 3:
         print("Usage: python script.py <overall_sig> <cutoff_sig>")
         sys.exit(1)
@@ -184,8 +184,8 @@ if __name__ == "__main__":
     sys_sig = float(sys.argv[2])
     stdscale = sys.argv[3]
 
-    lasso_model_filepath = os.path.join("detailed_models_lasso_pbe", f"stdscaler_{stdscale}", f"model_all_{overall_sig}_sys_{sys_sig}_lasso")
-    #os.makedirs(lasso_model_filepath, exist_ok=True)
+    lasso_model_filepath = os.path.join("detailed_models_lasso_filter", f"stdscaler_{stdscale}", f"model_all_{overall_sig}_sys_{sys_sig}_lasso")
+    os.makedirs(lasso_model_filepath, exist_ok=True)
 
     # Execute the main function with the specified arguments
     main(overall_sig, sys_sig, ccsdt_file, pbe_file, atomic_number_file, count_path)

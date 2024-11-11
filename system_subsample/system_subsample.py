@@ -17,11 +17,11 @@ def parse_args():
 
     # using choices to restrict the values
     parser.add_argument("no_vac_discard", choices=["True", "False"], help="If True, use original features; if False, use filtered features")
-    #parser.add_argument("std_scale", choices=["True", "False"], help="If True, standard scale the features; if False, do not standard scale the features")
+    parser.add_argument("std_scale", choices=["True", "False"], help="If True, standard scale the features; if False, do not standard scale the features")
 
     args = parser.parse_args()
     args.no_vac_discard = args.no_vac_discard == "True"
-    #args.std_scale = args.std_scale == "True"
+    args.std_scale = args.std_scale == "True"
     return args
 
 def log_result(log_filename: str, message: str) -> None:
@@ -48,7 +48,7 @@ def read_hdf5_data(filepath: str, num_features: int,
                     hsmp_filenames: List[str],\
                     no_vac_discard: bool=True) -> np.ndarray:
     with h5py.File(filepath, 'r') as data:
-        functional_grp = data["functional_database/PBE"]
+        functional_grp = data["functional_database/PBE0"]
         Nx, Ny, Nz = functional_grp["metadata/FD_GRID"][:]
         grid_points = Nx * Ny * Nz
         feature_arr = np.zeros((grid_points, num_features + 2))
@@ -62,8 +62,8 @@ def read_hdf5_data(filepath: str, num_features: int,
         else:
             return functional_grp["filtered_feature"][:]
 
-def subsample_system(feature_arr: np.ndarray, cutoff_sig: float) -> Tuple[np.ndarray, int]:
-    subsampled_feature_arr, indices = subsampling(data=feature_arr, cutoff_sig=cutoff_sig, rate=0.1, method = "pykdtree", verbose = 2, standard_scale=True)
+def subsample_system(feature_arr: np.ndarray, cutoff_sig: float, std_scale: bool = False) -> Tuple[np.ndarray, int]:
+    subsampled_feature_arr, indices = subsampling(data=feature_arr, cutoff_sig=cutoff_sig, rate=0.1, method = "pykdtree", verbose = 2, standard_scale=std_scale)
     len_sub = len(subsampled_feature_arr) 
     print(f"length of subsampled array: {len_sub}\n")
     return subsampled_feature_arr, len_sub
@@ -74,26 +74,27 @@ def main():
     print(f"System type: {args.system_type}")
     print(f"System path: {args.system_path}")
     print(f"Cutoff sig: {args.cutoff_sig}")
-    print(f"No vac discard: {args.no_vac_discard}") # Always False (which means vacuum is discarded)
+    print(f"No vac discard: {args.no_vac_discard}")
+    print(f"Std scale: {args.std_scale}")
 
     system_name = args.system_path.split("/")[-1].split("_HSMP")[0]
-    mcsh_max_order, mcsh_step_size, mcsh_max_r = 4, 0.5, 4.0
+    mcsh_max_order, mcsh_step_size, mcsh_max_r = 2, 0.5, 3.0
     hsmp_filenames, num_features = get_feature_list_hsmp(mcsh_max_order, mcsh_step_size, mcsh_max_r)
 
     print(f"Processing {system_name}...")
     if  not filepath_contains_spin(args.system_path):
         feature_arr = read_hdf5_data(args.system_path, num_features, hsmp_filenames, args.no_vac_discard)
 
-    rcut = np.arange(0.5, 4.5, 0.5)
-    mcsh_order = np.arange(0, 4, 1)
+    rcut = np.arange(0.5, 3.5, 0.5)
+    mcsh_order = np.arange(0, 3, 1)
     index = 2
     for order in mcsh_order:
         for rc in rcut:
             feature_arr[:, index] = feature_arr[:, index] * (rc**3)
             index += 1
-    feature_arr_subsample, len_arr = subsample_system(feature_arr, args.cutoff_sig)
+    feature_arr_subsample, len_arr = subsample_system(feature_arr, args.cutoff_sig, args.std_scale)
 
-    base_dir = f"subsampled_folder_v2_{args.no_vac_discard}/molecules/std_scale_True/"
+    base_dir = f"subsampled_folder_vac_{args.no_vac_discard}/{args.system_type}/std_scale_{args.std_scale}/"
     X_dir = os.path.join(base_dir, f"X_system_training_subsample/cutoff_{args.cutoff_sig}")
 
     # Ensure these directories exist
@@ -105,7 +106,7 @@ def main():
     print(f"Done processing {args.system_path}!")
 
     # Assuming system_type and cutoff_sig are defined earlier in your code
-    log_directory = f"subsampled_folder_v2_{args.no_vac_discard}/molecules/std_scale_True/"
+    log_directory = f"subsampled_folder_vac_{args.no_vac_discard}/{args.system_type}/std_scale_{args.std_scale}/"
     log_filename = f"{log_directory}log_subsample_cutoff_{args.cutoff_sig}.txt"
 
     # Ensure the directory exists
