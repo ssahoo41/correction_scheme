@@ -110,18 +110,21 @@ class EnergyCorrectionFitter:
         formation_energy = energy_array - predicted_energy
         # log the different energies
 
-        pd.DataFrame(energy_array).to_csv("energy_array.csv") # ccsdt or pbe
+        pd.DataFrame(energy_array).to_csv(os.path.join(self.model_filepath,"energy_array.csv")) # ccsdt or pbe
         atom_types = [f"Atom_{i}" for i in range(atoms_count_array.shape[1])]
         pd.DataFrame(atoms_count_array, index=molecules, columns=atom_types).to_csv(
-            "atoms_count_array.csv"
+            os.path.join(self.model_filepath,"atoms_count_array.csv")
         ) # atom counts per molecule
-        pd.DataFrame(np.array(predicted_energy)).to_csv("predicted_energy.csv") # energy predicted from regression 
-        pd.DataFrame(formation_energy).to_csv("formation_energy.csv")
+        
+        pd.DataFrame(np.array(predicted_energy)).to_csv(os.path.join(self.model_filepath,"predicted_energy.csv")) # energy predicted from regression 
+
+        pd.DataFrame(formation_energy).to_csv(os.path.join(self.model_filepath,"formation_energy.csv"))
         # Save molecules to formation energy mapping
         formation_energy_dict = pd.DataFrame(
             {"Molecule": molecules, "Formation Energy (eV)": formation_energy}
         ).set_index("Molecule")
         formation_energy_dict.to_csv("molecules_to_formation_energy.csv")
+        
         return {
             molecule: energy for molecule, energy in zip(molecules, formation_energy)
         }
