@@ -29,7 +29,7 @@ class EnergyCorrectionFitter:
     ):
         """Initialize EnergyCalculator with instance variables since we need to keep referencing these for logging"""
         # Constants
-        self.Ha_to_eV = 27.21136
+        self.Ha_to_eV = 27.21136 # Hartree to eV
 
         # Input files and paths
         self._ccsdt_file = ccsdt_file
@@ -88,44 +88,40 @@ class EnergyCorrectionFitter:
             print(f"Error decoding JSON from file: {file_path}")
             raise
 
-# Ha_to_eV = 27.21136
-
-# def load_json(file_path):
-#     """Loads data from a JSON file."""
-#     with open(file_path, 'r') as f:
-#         return json.load(f)
-
-    def calculate_formation_energy(self, energy_dict, atoms_count_array):
+    def calculate_formation_energy(self, energy_dict, atoms_count_array, model_filepath = None):
         """Calculates formation energy from energy dictionary and atoms count array.
         Args:
-        energy_dict (dict): Dictionary of energies
+        energy_dict (dict): Dictionary of energies of molecules specified in atoms_count_array
         atoms_count_array (np.ndarray): Array of atom counts
-        Ha_to_eV (float): Conversion factor from Hartree to eV
+        example: {"NH2NO": [2, 0, 2, 1], "C2H6N2O2_E-Azodioxymethane": [6, 2, 2, 2], "NH3O": [3, 0, 1, 1], "H2O2": [2, 0, 0, 2], "C2H6": [6, 2, 0, 0], ....}
         """
 
         assert (
             len(energy_dict) == atoms_count_array.shape[0]
         ), "Mismatch in lengths of energy_dict and atoms_count_array"
 
-        energy_array = np.array(list(energy_dict.values())) * self.Ha_to_eV
-        molecules = list(energy_dict.keys())
+        energy_array = np.array(list(energy_dict.values())) * self.Ha_to_eV # convert to eV
+
+        molecules = list(energy_dict.keys()) # list of molecules
+
         reg = LinearRegression(fit_intercept=False)
         reg.fit(atoms_count_array, energy_array)
         predicted_energy = reg.predict(atoms_count_array)
         formation_energy = energy_array - predicted_energy
-        pd.DataFrame(energy_array).to_csv("energy_array.csv")
+        # log the different energies
+
+        pd.DataFrame(energy_array).to_csv("energy_array.csv") # ccsdt or pbe
         atom_types = [f"Atom_{i}" for i in range(atoms_count_array.shape[1])]
         pd.DataFrame(atoms_count_array, index=molecules, columns=atom_types).to_csv(
             "atoms_count_array.csv"
-        )
-        pd.DataFrame(np.array(predicted_energy)).to_csv("predicted_energy.csv")
+        ) # atom counts per molecule
+        pd.DataFrame(np.array(predicted_energy)).to_csv("predicted_energy.csv") # energy predicted from regression 
         pd.DataFrame(formation_energy).to_csv("formation_energy.csv")
         # Save molecules to formation energy mapping
         formation_energy_dict = pd.DataFrame(
             {"Molecule": molecules, "Formation Energy (eV)": formation_energy}
         ).set_index("Molecule")
         formation_energy_dict.to_csv("molecules_to_formation_energy.csv")
-        # TODO - check this section
         return {
             molecule: energy for molecule, energy in zip(molecules, formation_energy)
         }
