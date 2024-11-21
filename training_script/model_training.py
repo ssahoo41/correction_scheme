@@ -225,7 +225,7 @@ class EnergyCorrectionFitter:
         #         writer.writerow(header)
         #     writer.writerows(data)
 
-    def correctly_scale_data():
+    def correctly_scale_data(scaler, X_train, X_test, Y_train, Y_test):
         """
         Scales data using the provided sklearn scaler.
 
@@ -245,7 +245,9 @@ class EnergyCorrectionFitter:
         X_test_scaled = scaler.transform(X_test)
 
         # Scale targets if using certain scalers that require it
-        if isinstance(scaler, (MinMaxScaler, MaxAbsScaler, StandardScaler, RobustScaler)):
+        if isinstance(
+            scaler, (MinMaxScaler, MaxAbsScaler, StandardScaler, RobustScaler)
+        ):
             Y_train = Y_train.reshape(-1, 1)
             Y_test = Y_test.reshape(-1, 1)
             Y_train_scaled = scaler.fit_transform(Y_train)
