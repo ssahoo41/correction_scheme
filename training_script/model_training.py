@@ -8,6 +8,11 @@ import pickle
 import platform
 import numpy as np
 import pandas as pd
+import datashader as ds
+import datashader.transfer_functions as tf
+from datashader.utils import export_image
+import matplotlib.pyplot as plt
+from matplotlib.gridspec import GridSpec
 from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Lasso, Ridge, LinearRegression
@@ -226,7 +231,59 @@ class EnergyCorrectionFitter:
         #     writer.writerows(data)
 
     def plot_unscaled_vs_scaled(self, title, X_unscaled, Y_unscaled, X_scaled, Y_scaled):    
-
+        # Create figure with custom layout using GridSpec
+        fig = plt.figure(figsize=(12, 10))
+        gs = GridSpec(2, 2, width_ratios=[4, 1], height_ratios=[1, 4])
+        
+        # Create main scatter plot and marginal histogram axes
+        ax_scatter = fig.add_subplot(gs[1, 0])
+        ax_hist_x = fig.add_subplot(gs[0, 0])
+        ax_hist_y = fig.add_subplot(gs[1, 1])
+        
+        # Create DataFrame for datashader
+        df = pd.DataFrame({
+            'x': X_unscaled.ravel(),
+            'y': Y_unscaled.ravel()
+        })
+        
+        # Create canvas and aggregate points
+        canvas = ds.Canvas(
+            plot_width=400,
+            plot_height=400,
+            x_range=(df.x.min(), df.x.max()),
+            y_range=(df.y.min(), df.y.max())
+        )
+        
+        agg = canvas.points(df, 'x', 'y')
+        
+        # Create color mapping
+        cmap = plt.get_cmap('viridis')
+        img = tf.shade(agg, cmap=cmap)
+        
+        # Plot the datashader image
+        ax_scatter.imshow(
+            img.to_pil(),
+            extent=[df.x.min(), df.x.max(), df.y.min(), df.y.max()],
+            aspect='auto'
+        )
+        
+        # Plot marginal distributions
+        ax_hist_x.hist(df.x, bins=50, density=True, alpha=0.5)
+        ax_hist_y.hist(df.y, bins=50, density=True, alpha=0.5, orientation='horizontal')
+        
+        # Clean up axes
+        ax_hist_x.set_xticklabels([])
+        ax_hist_y.set_yticklabels([])
+        
+        # Labels
+        ax_scatter.set_xlabel('Median income in block')
+        ax_scatter.set_ylabel('Average house value($)')
+        plt.suptitle(f'Data Distribution - {type(scaler).__name__}', y=1.02)
+        
+        # Adjust layout
+        plt.tight_layout()
+        
+        return fig
 
 
     def correctly_scale_data(self, scaler, X_train, X_test, Y_train, Y_test, visualize_scaling = True):
@@ -831,6 +888,7 @@ if __name__ == "__main__":
     sys_sig = float(sys.argv[4])
     print(overall_sig, sys_sig)
     base_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/thesis_datagen/publication_purpose/subsampling_script/partitioning"
+    base_path = # TODO bring in logic from new code for using working directory instead
     count_path = os.path.join(base_path, f"mcsh_{mcsh_order}_rcut_{rcut}")
     print(f"Count path: {count_path}")
     lasso_model_filepath = os.path.join(
