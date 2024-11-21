@@ -225,9 +225,13 @@ class EnergyCorrectionFitter:
         #         writer.writerow(header)
         #     writer.writerows(data)
 
-    def correctly_scale_data(scaler, X_train, X_test, Y_train, Y_test):
+    def plot_unscaled_vs_scaled(self, title, X_unscaled, Y_unscaled, X_scaled, Y_scaled):    
+
+
+
+    def correctly_scale_data(self, scaler, X_train, X_test, Y_train, Y_test, visualize_scaling = True):
         """
-        Scales data using the provided sklearn scaler.
+        Scales data using the provided sklearn scaler. Note that the X_train and X_test in question are per fold from the perform_cross_validation function
 
         Args:
             scaler: sklearn scaler instance
@@ -235,12 +239,16 @@ class EnergyCorrectionFitter:
             X_test: Test features
             Y_train: Training targets
             Y_test: Test targets
+            visualize_date: By default true, will 
 
         Returns:
             Tuple of scaled (X_train, X_test, Y_train, Y_test)
         """
+        # save unscaled data 
+        X_train_orig, X_test_orig = X_train, X_test
+        Y_train_orig, Y_test_orig = Y_train, Y_test
 
-        # Scale features
+        # scale features
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
 
@@ -257,6 +265,9 @@ class EnergyCorrectionFitter:
         else:
             Y_train_scaled = Y_train
             Y_test_scaled = Y_test
+
+        if visualize_scaling:
+            self.plot_unscaled_vs_scaled(scaler, X_train_orig, Y_train_orig, X_train, Y_train)
 
         return X_train_scaled, X_test_scaled, Y_train_scaled, Y_test_scaled
 
@@ -290,9 +301,8 @@ class EnergyCorrectionFitter:
             X_train, X_test = final_count_arr[train_index], final_count_arr[test_index]
 
             X_train, X_test, Y_train, Y_test = correctly_scale_data(
-                scaler,
+                scaler, X_train, X_test
             )
-            # scale the data within the fold
             X_train = scaler.fit_transform(
                 X_train
             )  # TODO: make cases for all types of scalers
