@@ -12,6 +12,16 @@ from sklearn.model_selection import KFold
 from sklearn.preprocessing import StandardScaler
 from sklearn.linear_model import Lasso, Ridge, LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
+from sklearn.preprocessing import (
+    MaxAbsScaler,
+    MinMaxScaler,
+    Normalizer,
+    PowerTransformer,
+    QuantileTransformer,
+    RobustScaler,
+    StandardScaler,
+    minmax_scale,
+)
 
 
 class EnergyCorrectionFitter:
@@ -115,7 +125,7 @@ class EnergyCorrectionFitter:
         pd.DataFrame(atoms_count_array, index=molecules, columns=atom_types).to_csv(
             os.path.join(self.model_filepath,"atoms_count_array.csv")
         ) # atom counts per molecule
-        
+
         pd.DataFrame(np.array(predicted_energy)).to_csv(os.path.join(self.model_filepath,"predicted_energy.csv")) # energy predicted from regression 
 
         pd.DataFrame(formation_energy).to_csv(os.path.join(self.model_filepath,"formation_energy.csv"))
@@ -150,13 +160,13 @@ class EnergyCorrectionFitter:
         )
 
         # Save to csv as artefact
-        p = os.path.join(self.model_filepath, "target_var_calculations.csv")
+        p = os.path.join(self.model_filepath, "target_variable_calculations.csv")
         df.to_csv(p)
 
         return target_dict
 
     def sort_count_array(self, count_file, target_dict):
-        """Sorts count array based on the order of molecules in CCS-DT formation energy dictionary."""
+        """Sorts count array based on the order of molecules in CCSDT formation energy dictionary."""
         df = pd.read_csv(count_file, header=None)
 
         target_dict = {
@@ -204,8 +214,11 @@ class EnergyCorrectionFitter:
         #         writer.writerow(header)
         #     writer.writerows(data)
 
+
+    def correctly_scale_data():
+        
     def perform_cross_validation(
-        self, alpha, model_filepath, final_count_arr, target, systems
+        self, alpha, model_filepath, final_count_arr, target, systems, scaler_type=StandardScaler()
     ):
         kf = KFold(n_splits=5, shuffle=False)
         metrics = {
@@ -222,14 +235,17 @@ class EnergyCorrectionFitter:
         final_error_max_y_test = []
         molecule_max_error = []
 
+        scaler = scaler_type #TODO: test other types of scalers getting fed in, if the () is used
+
         for i, (train_index, test_index) in enumerate(kf.split(systems)):
             X_train, X_test = final_count_arr[train_index], final_count_arr[test_index]
 
+            X_train, X_test, Y_train, Y_test = correctly_scale_data(scaler, )
             # scale the data within the fold
-            scaler = StandardScaler()
             X_train = scaler.fit_transform(
                 X_train
-            )  # LD: this learns the mean from the X_train
+            )  # TODO: make cases for all types of scalers 
+
             self.write_csv(
                 os.path.join(self.model_filepath, f"{alpha}_XTrain"), X_train)
             X_test = scaler.transform(
@@ -556,27 +572,8 @@ if __name__ == "__main__":
     )
 
 
-def calculate_formation_energy(energy_dict, atoms_count_array):
-    """Calculates formation energy from energy dictionary and atoms count array."""
 
-    assert len(energy_dict) == atoms_count_array.shape[0], "Mismatch in lengths of energy_dict and atoms_count_array"
 
-    energy_array = np.array(list(energy_dict.values())) * Ha_to_eV
-    molecules = list(energy_dict.keys())
-    reg = LinearRegression(fit_intercept=False)
-    reg.fit(atoms_count_array, energy_array)
-    predicted_energy = reg.predict(atoms_count_array)
-    formation_energy = energy_array - predicted_energy
-    return {molecule: energy for molecule, energy in zip(molecules, formation_energy)}
-
-def calculate_target_variable(ccsdt_energy, pbe_energy, atomic_number_dict):
-    """Calculates target variable for model training."""
-    ccsdt_formation_en = calculate_formation_energy(ccsdt_energy, np.array(list(atomic_number_dict.values())))
-    pbe_formation_en = calculate_formation_energy(pbe_energy, np.array(list(atomic_number_dict.values())))
-
-    target_dict = {key: ccsdt_formation_en[key] - pbe_formation_en.get(key, 0) for key in ccsdt_formation_en}
-
-    return target_dict
 
 def sort_count_array(count_file, target_dict):
     """Sorts count array based on the order of molecules in CCSDT formation energy dictionary."""
