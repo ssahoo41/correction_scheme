@@ -39,7 +39,7 @@ class EnergyCorrectionFitter:
     ):
         """Initialize EnergyCalculator with instance variables since we need to keep referencing these for logging"""
         # Constants
-        self.Ha_to_eV = 27.21136 # Hartree to eV
+        self.Ha_to_eV = 27.21136  # Hartree to eV
 
         # Input files and paths
         self._ccsdt_file = ccsdt_file
@@ -98,7 +98,9 @@ class EnergyCorrectionFitter:
             print(f"Error decoding JSON from file: {file_path}")
             raise
 
-    def calculate_formation_energy(self, energy_dict, atoms_count_array, model_filepath = None):
+    def calculate_formation_energy(
+        self, energy_dict, atoms_count_array, model_filepath=None
+    ):
         """Calculates formation energy from energy dictionary and atoms count array.
         Args:
         energy_dict (dict): Dictionary of energies of molecules specified in atoms_count_array
@@ -110,9 +112,11 @@ class EnergyCorrectionFitter:
             len(energy_dict) == atoms_count_array.shape[0]
         ), "Mismatch in lengths of energy_dict and atoms_count_array"
 
-        energy_array = np.array(list(energy_dict.values())) * self.Ha_to_eV # convert to eV
+        energy_array = (
+            np.array(list(energy_dict.values())) * self.Ha_to_eV
+        )  # convert to eV
 
-        molecules = list(energy_dict.keys()) # list of molecules
+        molecules = list(energy_dict.keys())  # list of molecules
 
         reg = LinearRegression(fit_intercept=False)
         reg.fit(atoms_count_array, energy_array)
@@ -120,21 +124,27 @@ class EnergyCorrectionFitter:
         formation_energy = energy_array - predicted_energy
         # log the different energies
 
-        pd.DataFrame(energy_array).to_csv(os.path.join(self.model_filepath,"energy_array.csv")) # ccsdt or pbe
+        pd.DataFrame(energy_array).to_csv(
+            os.path.join(self.model_filepath, "energy_array.csv")
+        )  # ccsdt or pbe
         atom_types = [f"Atom_{i}" for i in range(atoms_count_array.shape[1])]
         pd.DataFrame(atoms_count_array, index=molecules, columns=atom_types).to_csv(
-            os.path.join(self.model_filepath,"atoms_count_array.csv")
-        ) # atom counts per molecule
+            os.path.join(self.model_filepath, "atoms_count_array.csv")
+        )  # atom counts per molecule
 
-        pd.DataFrame(np.array(predicted_energy)).to_csv(os.path.join(self.model_filepath,"predicted_energy.csv")) # energy predicted from regression 
+        pd.DataFrame(np.array(predicted_energy)).to_csv(
+            os.path.join(self.model_filepath, "predicted_energy.csv")
+        )  # energy predicted from regression
 
-        pd.DataFrame(formation_energy).to_csv(os.path.join(self.model_filepath,"formation_energy.csv"))
+        pd.DataFrame(formation_energy).to_csv(
+            os.path.join(self.model_filepath, "formation_energy.csv")
+        )
         # Save molecules to formation energy mapping
         formation_energy_dict = pd.DataFrame(
             {"Molecule": molecules, "Formation Energy (eV)": formation_energy}
         ).set_index("Molecule")
         formation_energy_dict.to_csv("molecules_to_formation_energy.csv")
-        
+
         return {
             molecule: energy for molecule, energy in zip(molecules, formation_energy)
         }
@@ -180,8 +190,9 @@ class EnergyCorrectionFitter:
         # Add timestamp with format YYYY-MM-DD_HH-MM
         timestamp = datetime.now().strftime("%Y-%m-%d_%H-%M")
         # Save with timestamp in filename
-        output_filename = os.path.join(self.model_filepath,
-                                       f"sorted_count_array_{timestamp}.csv")
+        output_filename = os.path.join(
+            self.model_filepath, f"sorted_count_array_{timestamp}.csv"
+        )
         # df_sorted.to_csv(output_filename, index=False)
         df_sorted = (
             df.sort_values(by="sort_order").iloc[:, 2:].drop(columns=["sort_order"])
@@ -189,9 +200,9 @@ class EnergyCorrectionFitter:
         df_sorted.to_csv(output_filename)  # artefact checking
 
         return (
-            df_sorted.to_numpy(), #count arrays per molecule
-            np.array(list(target_dict.values())), # target values
-            list(target_dict.keys()), #molecules
+            df_sorted.to_numpy(),  # count arrays per molecule
+            np.array(list(target_dict.values())),  # target values
+            list(target_dict.keys()),  # molecules
         )
 
     def write_csv(self, filename, data, delimiter=",", header=None):
@@ -214,11 +225,47 @@ class EnergyCorrectionFitter:
         #         writer.writerow(header)
         #     writer.writerows(data)
 
-
     def correctly_scale_data():
-        
+        """
+        Scales data using the provided sklearn scaler.
+
+        Args:
+            scaler: sklearn scaler instance
+            X_train: Training features
+            X_test: Test features
+            Y_train: Training targets
+            Y_test: Test targets
+
+        Returns:
+            Tuple of scaled (X_train, X_test, Y_train, Y_test)
+        """
+
+        # Scale features
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+
+        # Scale targets if using certain scalers that require it
+        if isinstance(scaler, (MinMaxScaler, MaxAbsScaler, StandardScaler, RobustScaler)):
+            Y_train = Y_train.reshape(-1, 1)
+            Y_test = Y_test.reshape(-1, 1)
+            Y_train_scaled = scaler.fit_transform(Y_train)
+            Y_test_scaled = scaler.transform(Y_test)
+            Y_train_scaled = Y_train_scaled.ravel()
+            Y_test_scaled = Y_test_scaled.ravel()
+        else:
+            Y_train_scaled = Y_train
+            Y_test_scaled = Y_test
+
+        return X_train_scaled, X_test_scaled, Y_train_scaled, Y_test_scaled
+
     def perform_cross_validation(
-        self, alpha, model_filepath, final_count_arr, target, systems, scaler_type=StandardScaler()
+        self,
+        alpha,
+        model_filepath,
+        final_count_arr,
+        target,
+        systems,
+        scaler_type=StandardScaler(),
     ):
         kf = KFold(n_splits=5, shuffle=False)
         metrics = {
@@ -235,19 +282,22 @@ class EnergyCorrectionFitter:
         final_error_max_y_test = []
         molecule_max_error = []
 
-        scaler = scaler_type #TODO: test other types of scalers getting fed in, if the () is used
+        scaler = scaler_type  # TODO: test other types of scalers getting fed in, if the () is used
 
         for i, (train_index, test_index) in enumerate(kf.split(systems)):
             X_train, X_test = final_count_arr[train_index], final_count_arr[test_index]
 
-            X_train, X_test, Y_train, Y_test = correctly_scale_data(scaler, )
+            X_train, X_test, Y_train, Y_test = correctly_scale_data(
+                scaler,
+            )
             # scale the data within the fold
             X_train = scaler.fit_transform(
                 X_train
-            )  # TODO: make cases for all types of scalers 
+            )  # TODO: make cases for all types of scalers
 
             self.write_csv(
-                os.path.join(self.model_filepath, f"{alpha}_XTrain"), X_train)
+                os.path.join(self.model_filepath, f"{alpha}_XTrain"), X_train
+            )
             X_test = scaler.transform(
                 X_test
             )  # applies mean from the X_train, not the test.
@@ -262,7 +312,7 @@ class EnergyCorrectionFitter:
             reg = Lasso(
                 alpha=alpha, fit_intercept=False, max_iter=10000, selection="random"
             )
-            reg.fit(X_train, y_train) # fitting step
+            reg.fit(X_train, y_train)  # fitting step
 
             # store the number of non-zero parameters
             metrics["non_zero_parameters"].append(np.sum(reg.coef_ != 0))
@@ -282,25 +332,31 @@ class EnergyCorrectionFitter:
             y_train_pred = reg.predict(X_train)
             # y_test_pred = reg.predict(X_test)
             y_all_pred = reg.predict(final_count_arr_scaled)
-            
+
             # Unscale predictions and actual values before metrics
-            y_train_pred_unscaled = scaler.inverse_transform(y_train_pred.reshape(-1, 1)).ravel()
-            y_test_pred_unscaled = scaler.inverse_transform(y_test_pred.reshape(-1, 1)).ravel()
-            
+            y_train_pred_unscaled = scaler.inverse_transform(
+                y_train_pred.reshape(-1, 1)
+            ).ravel()
+            y_test_pred_unscaled = scaler.inverse_transform(
+                y_test_pred.reshape(-1, 1)
+            ).ravel()
+
             # y_train and y_test are already 2D from earlier reshape
             y_train_unscaled = scaler.inverse_transform(y_train).ravel()
             y_test_unscaled = scaler.inverse_transform(y_test).ravel()
             y_train_unscaled = scaler.inverse_transform(y_train)
             y_train_pred_unscaled = scaler.inverse_transform(y_train_pred)
-            
+
             y_test_unscaled = scaler.inverse_transform(y_test)
             y_test_pred_unscaled = scaler.inverse_transform(y_test_pred)
-            
+
             # For "all" metrics, target is already unscaled so only unscale predictions
             y_all_pred_unscaled = scaler.inverse_transform(y_all_pred)
-            
+
             # Collect and store metrics with unscaled values
-            self.collect_metrics(metrics, "train", y_train_unscaled, y_train_pred_unscaled)
+            self.collect_metrics(
+                metrics, "train", y_train_unscaled, y_train_pred_unscaled
+            )
             self.collect_metrics(metrics, "test", y_test_unscaled, y_test_pred_unscaled)
             self.collect_metrics(metrics, "all", target, y_all_pred_unscaled)
 
@@ -484,7 +540,6 @@ class EnergyCorrectionFitter:
 
         return
 
-
     def main(
         self,
         mcsh,
@@ -521,6 +576,7 @@ class EnergyCorrectionFitter:
         # call the function for LASSO regression
         self.model_fitting(self.model_filepath, final_count_arr, target, systems)
         return
+
 
 if __name__ == "__main__":
     ccsdt_file = "ccsdt_energy.json"
@@ -572,24 +628,34 @@ if __name__ == "__main__":
     )
 
 
-
-
-
 def sort_count_array(count_file, target_dict):
     """Sorts count array based on the order of molecules in CCSDT formation energy dictionary."""
     df = pd.read_csv(count_file, header=None)
-    target_dict = {key: target_dict[key] for key in target_dict if key in df[1].values} # Filter out molecules not in target_dict
+    target_dict = {
+        key: target_dict[key] for key in target_dict if key in df[1].values
+    }  # Filter out molecules not in target_dict
 
-    df['sort_order'] = df[1].map(lambda x: list(target_dict.keys()).index(x) if x in target_dict else None)
-    df_sorted = df.sort_values(by='sort_order').iloc[:, 2:].drop(columns=['sort_order'])
-    return df_sorted.to_numpy(), np.array(list(target_dict.values())), list(target_dict.keys())
+    df["sort_order"] = df[1].map(
+        lambda x: list(target_dict.keys()).index(x) if x in target_dict else None
+    )
+    df_sorted = df.sort_values(by="sort_order").iloc[:, 2:].drop(columns=["sort_order"])
+    return (
+        df_sorted.to_numpy(),
+        np.array(list(target_dict.values())),
+        list(target_dict.keys()),
+    )
+
 
 def perform_cross_validation(alpha, model_filepath, final_count_arr, target, systems):
     kf = KFold(n_splits=5, shuffle=True, random_state=42)
     metrics = {
-        'train_mae': [], 'test_mae': [], 'all_mae': [],
-        'train_mse': [], 'test_mse': [], 'all_mse': [],
-        'non_zero_parameters': []
+        "train_mae": [],
+        "test_mae": [],
+        "all_mae": [],
+        "train_mse": [],
+        "test_mse": [],
+        "all_mse": [],
+        "non_zero_parameters": [],
     }
     # we will append these lists with the maximum error in each fold
     max_y_test = []
@@ -606,11 +672,15 @@ def perform_cross_validation(alpha, model_filepath, final_count_arr, target, sys
         final_count_arr_scaled = scaler.transform(final_count_arr)
 
         # Fit the LASSO model
-        reg = Lasso(alpha=alpha, fit_intercept=False, max_iter=20000, selection='random')
+        reg = Lasso(
+            alpha=alpha, fit_intercept=False, max_iter=20000, selection="random"
+        )
         reg.fit(X_train, y_train)
         # Check if Lasso converged
         if reg.n_iter_ == reg.max_iter:
-            print(f"Warning: Lasso did not converge for Alpha = {alpha}, Fold {i}. Reached maximum iterations: {reg.n_iter_}")
+            print(
+                f"Warning: Lasso did not converge for Alpha = {alpha}, Fold {i}. Reached maximum iterations: {reg.n_iter_}"
+            )
         print(f"Alpha = {alpha}, Fold {i}: Number of iterations = {reg.n_iter_}")
         y_test_pred = reg.predict(X_test)
         max_test_idx = np.argmax(abs(y_test))
@@ -618,96 +688,124 @@ def perform_cross_validation(alpha, model_filepath, final_count_arr, target, sys
         final_error_max_y_test.append(y_test[max_test_idx] - y_test_pred[max_test_idx])
         molecule_max_error.append(systems[test_index[max_test_idx]])
 
-        #final_count_arr_scaled = scaler.transform(final_count_arr)
+        # final_count_arr_scaled = scaler.transform(final_count_arr)
         # Collect and store metrics
-        collect_metrics(metrics, 'train', y_train, reg.predict(X_train))
+        collect_metrics(metrics, "train", y_train, reg.predict(X_train))
         # save y_train and y_train_pred to a file in the folder for alpha for each fold
 
         y_train_pred = reg.predict(X_train)
-        train_pred_filename = os.path.join(model_filepath, f"alpha_{alpha}", f"{i}_fold_train_pred.npy")
+        train_pred_filename = os.path.join(
+            model_filepath, f"alpha_{alpha}", f"{i}_fold_train_pred.npy"
+        )
         np.save(train_pred_filename, y_train_pred)
-        train_true_filename = os.path.join(model_filepath, f"alpha_{alpha}", f"{i}_fold_train_true.npy")
+        train_true_filename = os.path.join(
+            model_filepath, f"alpha_{alpha}", f"{i}_fold_train_true.npy"
+        )
         np.save(train_true_filename, y_train)
 
-        collect_metrics(metrics, 'test', y_test, reg.predict(X_test))
-        collect_metrics(metrics, 'all', target, reg.predict(final_count_arr_scaled))
-        
+        collect_metrics(metrics, "test", y_test, reg.predict(X_test))
+        collect_metrics(metrics, "all", target, reg.predict(final_count_arr_scaled))
+
         # Save the model
-        model_filename = os.path.join(model_filepath, f"alpha_{alpha}", f"{i}_fold_model.pickle")
+        model_filename = os.path.join(
+            model_filepath, f"alpha_{alpha}", f"{i}_fold_model.pickle"
+        )
         save_model(reg, model_filename)
-        coef_filename = os.path.join(model_filepath, f"alpha_{alpha}", f"{i}_fold_coef.npy")
+        coef_filename = os.path.join(
+            model_filepath, f"alpha_{alpha}", f"{i}_fold_coef.npy"
+        )
         np.save(coef_filename, reg.coef_)
     # appending more lists to the metrics dictionary
-    metrics['max_y_test'] = max_y_test
-    metrics['final_error_max_y_test'] = final_error_max_y_test
-    metrics['molecule_max_error'] = molecule_max_error
-    metrics['non_zero_parameters'].append(np.count_nonzero(reg.coef_))
+    metrics["max_y_test"] = max_y_test
+    metrics["final_error_max_y_test"] = final_error_max_y_test
+    metrics["molecule_max_error"] = molecule_max_error
+    metrics["non_zero_parameters"].append(np.count_nonzero(reg.coef_))
 
     return metrics
 
+
 def collect_metrics(metrics_dict, prefix, y_true, y_pred):
-    metrics_dict[f'{prefix}_mae'].append(mean_absolute_error(y_true, y_pred))
-    metrics_dict[f'{prefix}_mse'].append(mean_squared_error(y_true, y_pred))
+    metrics_dict[f"{prefix}_mae"].append(mean_absolute_error(y_true, y_pred))
+    metrics_dict[f"{prefix}_mse"].append(mean_squared_error(y_true, y_pred))
+
 
 def save_model(model, filename):
     with open(filename, "wb") as file:
         pickle.dump(model, file)
 
+
 def log_max_error(alpha, metrics, log_filename):
-    with open(log_filename, 'a') as log_file:
+    with open(log_filename, "a") as log_file:
         log_file.write(f"{alpha}\t")
-        for i in range(len(metrics['max_y_test'])):
-            log_file.write(f"{i}\t{metrics['max_y_test'][i]}\t{metrics['final_error_max_y_test'][i]}\t{metrics['molecule_max_error'][i]}\t")
+        for i in range(len(metrics["max_y_test"])):
+            log_file.write(
+                f"{i}\t{metrics['max_y_test'][i]}\t{metrics['final_error_max_y_test'][i]}\t{metrics['molecule_max_error'][i]}\t"
+            )
         log_file.write("\n")
+
 
 def log_metrics(alpha, metrics, log_filename):
     # print train mae
-    print(metrics['train_mae'])
-    with open(log_filename, 'a') as log_file:
-        log_file.write(f"{alpha}\t{np.mean(metrics['train_mae'])}\t{np.std(metrics['train_mae'])}\t"
-                       f"{np.min(metrics['train_mae'])}\t{np.max(metrics['train_mae'])}\t"
-                       f"{np.mean(metrics['test_mae'])}\t{np.std(metrics['test_mae'])}\t"
-                       f"{np.min(metrics['test_mae'])}\t{np.max(metrics['test_mae'])}\t"
-                       f"{np.mean(metrics['all_mae'])}\t{np.std(metrics['all_mae'])}\t"
-                       f"{np.min(metrics['all_mae'])}\t{np.max(metrics['all_mae'])}\t"
-                       f"{metrics['test_mae']}\t{metrics['non_zero_parameters']}\n")
+    print(metrics["train_mae"])
+    with open(log_filename, "a") as log_file:
+        log_file.write(
+            f"{alpha}\t{np.mean(metrics['train_mae'])}\t{np.std(metrics['train_mae'])}\t"
+            f"{np.min(metrics['train_mae'])}\t{np.max(metrics['train_mae'])}\t"
+            f"{np.mean(metrics['test_mae'])}\t{np.std(metrics['test_mae'])}\t"
+            f"{np.min(metrics['test_mae'])}\t{np.max(metrics['test_mae'])}\t"
+            f"{np.mean(metrics['all_mae'])}\t{np.std(metrics['all_mae'])}\t"
+            f"{np.min(metrics['all_mae'])}\t{np.max(metrics['all_mae'])}\t"
+            f"{metrics['test_mae']}\t{metrics['non_zero_parameters']}\n"
+        )
+
 
 def log_results(filename, message):
     """Log results to a file."""
-    with open(filename, 'a') as f:
+    with open(filename, "a") as f:
         f.write(message)
 
+
 def model_fitting(model_filepath, final_count_arr, target, systems):
-    """ Fit a LASSO model to the data and return the model and the predictions."""
+    """Fit a LASSO model to the data and return the model and the predictions."""
     # Generate alpha values for fine-tuning around 1e-3
-    #alpha_list = [10**exp for exp in range(-4, -2, 1)]
-    #alpha_list += [1e-3 + i*(1e-4) for i in range(-5, 6)]  # Adding more granularity around 1e-3
-    alpha_list = [10**exp for exp in range(-8,3)] 
+    # alpha_list = [10**exp for exp in range(-4, -2, 1)]
+    # alpha_list += [1e-3 + i*(1e-4) for i in range(-5, 6)]  # Adding more granularity around 1e-3
+    alpha_list = [10**exp for exp in range(-8, 3)]
     for alpha in alpha_list:
         start_time = time.time()
         alpha_path = os.path.join(model_filepath, f"alpha_{alpha}")
         os.makedirs(alpha_path, exist_ok=True)
         print(f"==== Training model with alpha = {alpha} ====")
-        metrics = perform_cross_validation(alpha, model_filepath, final_count_arr, target, systems)
+        metrics = perform_cross_validation(
+            alpha, model_filepath, final_count_arr, target, systems
+        )
         log_metrics(alpha, metrics, os.path.join(model_filepath, "overall_log.txt"))
         log_max_error(alpha, metrics, os.path.join(model_filepath, "max_error_log.txt"))
         end_time = time.time()
         print(f"Time taken for alpha = {alpha}: {end_time - start_time} seconds")
     return
 
+
 def main(overall_sig, cutoff_sig, ccsdt_file, pbe_file, atomic_number_file, count_path):
     # Load energy and atomic number data
     ccsdt_energy = load_json(ccsdt_file)
     pbe_energy = load_json(pbe_file)
     atomic_number_dict = load_json(atomic_number_file)
-    target_dict = calculate_target_variable(ccsdt_energy, pbe_energy, atomic_number_dict)
-    #systems = list(target_dict.keys())
-    print(f"Baseline MAE between PBE and CCSD(T) = {np.mean(abs(np.array(list(target_dict.values()))))}")
-    count_file = os.path.join(count_path, f"count_array_overall_{overall_sig}_system_{cutoff_sig}.csv")
+    target_dict = calculate_target_variable(
+        ccsdt_energy, pbe_energy, atomic_number_dict
+    )
+    # systems = list(target_dict.keys())
+    print(
+        f"Baseline MAE between PBE and CCSD(T) = {np.mean(abs(np.array(list(target_dict.values()))))}"
+    )
+    count_file = os.path.join(
+        count_path, f"count_array_overall_{overall_sig}_system_{cutoff_sig}.csv"
+    )
     final_count_arr, target, systems = sort_count_array(count_file, target_dict)
     # call the function for LASSO regression
     model_fitting(lasso_model_filepath, final_count_arr, target, systems)
     return
+
 
 # Script Execution Entry Point
 if __name__ == "__main__":
@@ -723,7 +821,11 @@ if __name__ == "__main__":
     base_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/thesis_datagen/publication_purpose/subsampling_script/partitioning"
     count_path = os.path.join(base_path, f"mcsh_{mcsh_order}_rcut_{rcut}")
     print(f"Count path: {count_path}")
-    lasso_model_filepath = os.path.join("models_lasso_pbe_shuffle_True", f"mcsh_{mcsh_order}_rcut_{rcut}", f"model_all_{overall_sig}_sys_{sys_sig}_lasso")
+    lasso_model_filepath = os.path.join(
+        "models_lasso_pbe_shuffle_True",
+        f"mcsh_{mcsh_order}_rcut_{rcut}",
+        f"model_all_{overall_sig}_sys_{sys_sig}_lasso",
+    )
     os.makedirs(lasso_model_filepath, exist_ok=True)
     # Execute the main function with the specified arguments
     main(overall_sig, sys_sig, ccsdt_file, pbe_file, atomic_number_file, count_path)
