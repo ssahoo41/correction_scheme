@@ -355,22 +355,31 @@ class EnergyCorrectionFitter:
         scaler = scaler_type  # TODO: test other types of scalers getting fed in, if the () is used
 
         for i, (train_index, test_index) in enumerate(kf.split(systems)):
+
             X_train, X_test = final_count_arr[train_index], final_count_arr[test_index]
 
-            X_train, X_test, Y_train, Y_test = correctly_scale_data(
-                scaler, X_train, X_test
-            )
-            X_train = scaler.fit_transform(
-                X_train
-            )  # TODO: make cases for all types of scalers
+            y_train, y_test = target[train_index], target[test_index]
+
+            X_train, X_test, Y_train, Y_test = self.correctly_scale_data(
+                scaler, 
+                X_train, 
+                X_test, 
+                y_train,
+                y_test
+            ) # TODO: test this scaling under different scalers to make sure correct
+
+            # X_train = scaler.fit_transform(
+            #     X_train
+            # )  # TODO: make cases for all types of scalers
 
             self.write_csv(
                 os.path.join(self.model_filepath, f"{alpha}_XTrain"), X_train
             )
+
             X_test = scaler.transform(
                 X_test
             )  # applies mean from the X_train, not the test.
-            y_train, y_test = target[train_index], target[test_index]
+
 
             # Reshapes to 2D array while preserving 1d aspect of target variable
             scaler = StandardScaler()
@@ -591,8 +600,15 @@ class EnergyCorrectionFitter:
             alpha_path = os.path.join(model_filepath, f"alpha_{alpha}")
             os.makedirs(alpha_path, exist_ok=True)
             print(f"==== Training model with alpha = {alpha} ====")
+
+            # change scaler_type argument to type of scaler desired for the data 
             metrics = self.perform_cross_validation(
-                alpha, model_filepath, final_count_arr, target, systems
+                alpha, 
+                model_filepath, 
+                final_count_arr, 
+                target, 
+                systems, 
+                scaler_type = StandardScaler()
             )
             self.log_metrics(
                 alpha, metrics, os.path.join(model_filepath, f"{alpha}_overall_log.txt")
@@ -631,10 +647,14 @@ class EnergyCorrectionFitter:
         )
 
         # systems = list(target_dict.keys())
-        print(np.mean(abs(np.array(list(target_dict.values())))))
+        # print(np.mean(abs(np.array(list(target_dict.values())))))
+        print(
+        f"Baseline MAE between PBE and CCSD(T) = {np.mean(abs(np.array(list(target_dict.values()))))}"
+        )
+
         count_file = os.path.join(
             count_path,
-            f"mcsh_{mcsh}_rcut_{rcut}.0",
+            f"mcsh_{mcsh}_rcut_{rcut}",
             f"count_array_overall_{overall_sig}_system_{cutoff_sig}.csv",
         )  # in newest count_path, just make sure this matches the name of the data files
         # these are tagged with the mcsh and rcut settings as well
@@ -645,7 +665,6 @@ class EnergyCorrectionFitter:
         # call the function for LASSO regression
         self.model_fitting(self.model_filepath, final_count_arr, target, systems)
         return
-
 
 if __name__ == "__main__":
     ccsdt_file = "ccsdt_energy.json"
@@ -669,7 +688,7 @@ if __name__ == "__main__":
     sys_sig = float(sys.argv[2])
     stdscale = sys.argv[3]
     mcsh = 2  # change to mcsh tested
-    rcut = 2  # change to rcut tested
+    rcut = 2.0  # change to rcut tested
 
     # make the Energy object to call main on it
     e = EnergyCorrectionFitter(
@@ -875,27 +894,76 @@ def main(overall_sig, cutoff_sig, ccsdt_file, pbe_file, atomic_number_file, coun
     model_fitting(lasso_model_filepath, final_count_arr, target, systems)
     return
 
-
 # Script Execution Entry Point
+# if __name__ == "__main__":
+#     ccsdt_file = "ccsdt_energy.json"
+#     pbe_file = "pbe_energy.json"
+#     atomic_number_file = "atoms_count_mat.json"
+
+#     mcsh_order = int(sys.argv[1])
+#     rcut = float(sys.argv[2])
+#     overall_sig = float(sys.argv[3])
+#     sys_sig = float(sys.argv[4])
+#     print(overall_sig, sys_sig)
+#     base_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/thesis_datagen/publication_purpose/subsampling_script/partitioning"
+#     base_path = # TODO bring in logic from new code for using working directory instead
+#     count_path = os.path.join(base_path, f"mcsh_{mcsh_order}_rcut_{rcut}")
+#     print(f"Count path: {count_path}")
+#     lasso_model_filepath = os.path.join(
+#         "models_lasso_pbe_shuffle_True",
+#         f"mcsh_{mcsh_order}_rcut_{rcut}",
+#         f"model_all_{overall_sig}_sys_{sys_sig}_lasso",
+#     )
+#     os.makedirs(lasso_model_filepath, exist_ok=True)
+#     # Execute the main function with the specified arguments
+#     main(overall_sig, sys_sig, ccsdt_file, pbe_file, atomic_number_file, count_path)
+
 if __name__ == "__main__":
     ccsdt_file = "ccsdt_energy.json"
     pbe_file = "pbe_energy.json"
     atomic_number_file = "atoms_count_mat.json"
 
-    mcsh_order = int(sys.argv[1])
-    rcut = float(sys.argv[2])
-    overall_sig = float(sys.argv[3])
-    sys_sig = float(sys.argv[4])
-    print(overall_sig, sys_sig)
-    base_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/thesis_datagen/publication_purpose/subsampling_script/partitioning"
-    base_path = # TODO bring in logic from new code for using working directory instead
-    count_path = os.path.join(base_path, f"mcsh_{mcsh_order}_rcut_{rcut}")
-    print(f"Count path: {count_path}")
-    lasso_model_filepath = os.path.join(
-        "models_lasso_pbe_shuffle_True",
-        f"mcsh_{mcsh_order}_rcut_{rcut}",
-        f"model_all_{overall_sig}_sys_{sys_sig}_lasso",
+    # the count_path is the location of the count arrays after data transformation
+    count_path = os.path.join(
+        "..", "partitioning_scheme", "new_data"
+    )  # changed from n_vac_csv on 10/20/2024
+
+    wd_path = os.getcwd()
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    os.chdir(script_dir)  # make current
+
+    if len(sys.argv) < 3:
+        print("Usage: python script.py <overall_sig> <cutoff_sig>")
+        print(sys.argv)
+        sys.exit(1)
+
+    overall_sig = float(sys.argv[1])
+    sys_sig = float(sys.argv[2])
+    stdscale = sys.argv[3]
+    mcsh = 2  # change to mcsh being tested
+    rcut = 2  # change to rcut being tested
+
+    # make the Energy object to call main on it
+    e = EnergyCorrectionFitter(
+        mcsh=mcsh,
+        rcut=rcut,
+        overall_sig=overall_sig,  # overall cutoff sig for recording
+        cutoff_sig=sys_sig,  # system specific cutoff sig
+        ccsdt_file=ccsdt_file,  # file with CCSDT (highly accurate) energies
+        pbe_file=pbe_file,
+        atomic_number_file=atomic_number_file,
+        count_path=count_path,  # path with latest matrices of molecule counts, after data cleaning and subsampling
+        stdscale=stdscale,  # True or False depending on whether the data used a standard scaler, for logging
     )
-    os.makedirs(lasso_model_filepath, exist_ok=True)
+
     # Execute the main function with the specified arguments
-    main(overall_sig, sys_sig, ccsdt_file, pbe_file, atomic_number_file, count_path)
+    e.main(
+        mcsh,
+        rcut,
+        overall_sig,
+        sys_sig,
+        ccsdt_file,
+        pbe_file,
+        atomic_number_file,
+        count_path,
+    )
