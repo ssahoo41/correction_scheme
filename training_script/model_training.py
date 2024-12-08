@@ -27,6 +27,8 @@ from sklearn.preprocessing import (
     StandardScaler,
     minmax_scale,
 )
+import seaborn as sns
+import joblib
 
 
 class EnergyCorrectionFitter:
@@ -231,59 +233,31 @@ class EnergyCorrectionFitter:
         #     writer.writerows(data)
 
     def plot_unscaled_vs_scaled(self, title, X_unscaled, Y_unscaled, X_scaled, Y_scaled):    
-        # Create figure with custom layout using GridSpec
-        fig = plt.figure(figsize=(12, 10))
-        gs = GridSpec(2, 2, width_ratios=[4, 1], height_ratios=[1, 4])
         
-        # Create main scatter plot and marginal histogram axes
-        ax_scatter = fig.add_subplot(gs[1, 0])
-        ax_hist_x = fig.add_subplot(gs[0, 0])
-        ax_hist_y = fig.add_subplot(gs[1, 1])
-        
-        # Create DataFrame for datashader
-        df = pd.DataFrame({
-            'x': X_unscaled.ravel(),
-            'y': Y_unscaled.ravel()
-        })
-        
-        # Create canvas and aggregate points
-        canvas = ds.Canvas(
-            plot_width=400,
-            plot_height=400,
-            x_range=(df.x.min(), df.x.max()),
-            y_range=(df.y.min(), df.y.max())
-        )
-        
-        agg = canvas.points(df, 'x', 'y')
-        
-        # Create color mapping
-        cmap = plt.get_cmap('viridis')
-        img = tf.shade(agg, cmap=cmap)
-        
-        # Plot the datashader image
-        ax_scatter.imshow(
-            img.to_pil(),
-            extent=[df.x.min(), df.x.max(), df.y.min(), df.y.max()],
-            aspect='auto'
-        )
-        
-        # Plot marginal distributions
-        ax_hist_x.hist(df.x, bins=50, density=True, alpha=0.5)
-        ax_hist_y.hist(df.y, bins=50, density=True, alpha=0.5, orientation='horizontal')
-        
-        # Clean up axes
-        ax_hist_x.set_xticklabels([])
-        ax_hist_y.set_yticklabels([])
-        
-        # Labels
-        ax_scatter.set_xlabel('Median income in block')
-        ax_scatter.set_ylabel('Average house value($)')
-        plt.suptitle(f'Data Distribution - {type(scaler).__name__}', y=1.02)
-        
-        # Adjust layout
+        fig, ((ax1, ax2), (ax3, ax4)) = plt.subplots(2, 2, figsize=(15, 12))
+
+        # First row: X data
+        # unscaled X heatmap
+        sns.heatmap(X_unscaled, ax=ax1)
+        ax1.set_title("Unscaled X")
+
+        # scaled X heatmap
+        sns.heatmap(X_scaled, ax=ax2)
+        ax2.set_title("Scaled X")
+
+        # unscaled Y heatmap
+        sns.heatmap(Y_unscaled.reshape(-1,1), ax=ax3)
+        ax3.set_title("Unscaled Y")
+
+        # scaled Y heatmap
+        sns.heatmap(Y_scaled.reshape(-1,1), ax=ax4)
+        ax4.set_title("Scaled Y")
+
+        fig.suptitle(f'Comparison: {title}')
         plt.tight_layout()
-        
-        return fig
+
+        f = os.path.join(self.model_filepath, f'unscaled_v_scaled.png')
+        plt.savefig(f, bbox_inches='tight', dpi=300)
 
 
     def correctly_scale_data(self, scaler, X_train, X_test, Y_train, Y_test, visualize_scaling = True):
@@ -305,6 +279,9 @@ class EnergyCorrectionFitter:
         X_train_orig, X_test_orig = X_train, X_test
         Y_train_orig, Y_test_orig = Y_train, Y_test
 
+        #X_train_before = np.log1p(X_train)
+        #X_train = np.log1p(X_train)
+
         # scale features
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
@@ -323,8 +300,11 @@ class EnergyCorrectionFitter:
             Y_train_scaled = Y_train
             Y_test_scaled = Y_test
 
+        # save the scaler for usage in validation modules later 
+        joblib.dump(scaler, f'{self.model_filepath}_{scaler}_scaler.gz')
+
         if visualize_scaling:
-            self.plot_unscaled_vs_scaled(scaler, X_train_orig, Y_train_orig, X_train, Y_train)
+            self.plot_unscaled_vs_scaled(scaler, X_train_orig, Y_train_orig, X_train_scaled, X_train_scaled)
 
         return X_train_scaled, X_test_scaled, Y_train_scaled, Y_test_scaled
 
@@ -335,7 +315,7 @@ class EnergyCorrectionFitter:
         final_count_arr,
         target,
         systems,
-        scaler_type=StandardScaler(),
+        scaler_type=MaxAbsScaler(),
     ):
         kf = KFold(n_splits=5, shuffle=False)
         metrics = {
@@ -348,9 +328,9 @@ class EnergyCorrectionFitter:
             "non_zero_parameters": [],
         }
         # we will append these lists with the maximum error in each fold
-        max_y_test = []
-        final_error_max_y_test = []
-        molecule_max_error = []
+        max_y_test = [] # per fold
+        final_error_max_y_test = [] # per fold
+        molecule_max_error = [] # per fold
 
         scaler = scaler_type  # TODO: test other types of scalers getting fed in, if the () is used
 
@@ -360,8 +340,8 @@ class EnergyCorrectionFitter:
 
             y_train, y_test = target[train_index], target[test_index]
 
-            X_train, X_test, Y_train, Y_test = self.correctly_scale_data(
-                scaler, 
+            X_train_scaled, X_test_scaled, Y_train_scaled, Y_test_scaled = self.correctly_scale_data(
+                scaler,
                 X_train, 
                 X_test, 
                 y_train,
@@ -376,26 +356,27 @@ class EnergyCorrectionFitter:
                 os.path.join(self.model_filepath, f"{alpha}_XTrain"), X_train
             )
 
-            X_test = scaler.transform(
-                X_test
-            )  # applies mean from the X_train, not the test.
-
+            # X_test = scaler.transform(
+            #     X_test
+            # )  # applies mean from the X_train, not the test.
 
             # Reshapes to 2D array while preserving 1d aspect of target variable
-            scaler = StandardScaler()
-            y_train = scaler.fit_transform(y_train.reshape(-1, 1))
-            y_test = scaler.transform(y_test.reshape(-1, 1))
+            # scaler = StandardScaler()
+            # y_train = scaler.fit_transform(y_train.reshape(-1, 1))
+            # y_test = scaler.transform(y_test.reshape(-1, 1))
 
             # Fit the LASSO model
             reg = Lasso(
                 alpha=alpha, fit_intercept=False, max_iter=10000, selection="random"
             )
-            reg.fit(X_train, y_train)  # fitting step
+            reg.fit(X_train_scaled, Y_train_scaled)  # fitting step
+            reg.fit(X_train_scaled, y_train)  # alternative (original method)
 
             # store the number of non-zero parameters
             metrics["non_zero_parameters"].append(np.sum(reg.coef_ != 0))
 
-            y_test_pred = reg.predict(X_test)
+            y_test_pred = reg.predict(X_test) # prediction step 
+
             # find the index of the maximum y_test value in this fold
             max_test_idx = np.argmax(y_test)
             max_y_test.append(y_test[max_test_idx])
@@ -495,6 +476,7 @@ class EnergyCorrectionFitter:
 
         # Initialize scaler
         scaler = StandardScaler()
+        scaler = MaxAbsScaler()
         X_scaled = scaler.fit_transform(X)
 
         # Generate random splits
@@ -608,7 +590,7 @@ class EnergyCorrectionFitter:
                 final_count_arr, 
                 target, 
                 systems, 
-                scaler_type = StandardScaler()
+                scaler_type = MaxAbsScaler()
             )
             self.log_metrics(
                 alpha, metrics, os.path.join(model_filepath, f"{alpha}_overall_log.txt")
@@ -680,7 +662,7 @@ if __name__ == "__main__":
     os.chdir(script_dir)  # make current
 
     if len(sys.argv) < 3:
-        print("Usage: python script.py <overall_sig> <cutoff_sig>")
+        print("Usage: python script.py <overall_sig> <cutoff_sig> <StdScalerTrueOrFalse>")
         print(sys.argv)
         sys.exit(1)
 
