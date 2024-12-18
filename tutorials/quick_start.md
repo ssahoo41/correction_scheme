@@ -9,8 +9,11 @@ For this quick start, the flow will be:
 
 ![](assets/2024-12-18-15-09-34.png)
 
-1. First, load your DFT output energies 
-2.  
+1. First, load your DFT output energies onto your system
+2. import the package as `import correction_scheme as corr_scheme` 
+3. Change the path to the energies to your relative path from the folder in which you are using the package
+4. Call on package.predict_with_best_model()
+5. use the output of the function as the corrected DFT energies 
 
-In order to use the correction scheme workflow
+
 
