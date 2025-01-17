@@ -1,7 +1,9 @@
 import os
 import yaml
 from pathlib import Path
+from correction_model_workflow.discard_vacuum import DiscardVacuum
 from correction_model_workflow.data_preparation import HDF5Writer
+from correction_model_workflow.system_subsample import SystemSubsampler
 
 # first, save data to h5 format
 
@@ -33,19 +35,77 @@ def process_data_into_h5(molecules_data_folder):
                 hdf5_writer = HDF5Writer(molecules_data_folder, system_type, system, functional)
                 hdf5_writer.process_system(mcsh_max_order, mcsh_max_r)
 
-# data is now processed into h5, now run the sub-sampling process
+# data is now processed into h5, discard vacuum environments
+def discard_vacuum(self, systems):
+        
+        processor = DiscardVacuum(
+            mcsh_max_order=self.config['mcsh_max_order'],
+            mcsh_step_size=self.config['mcsh_step_size'],
+            mcsh_max_r=self.config['mcsh_max_r']
+        )
+        
+        for system in systems:
+            hdf5_path = os.path.join(
+                self.base_dir,
+                f"{system}_HSMP_{self.config['mcsh_max_order']}l_"
+                f"{self.config['mcsh_max_r']:.6f}.h5"
+            )
+            processor.process_system(hdf5_path)
 
+# run sub-sampling process
+def run_subsampling(self, systems):
+        for system in systems:
+            hdf5_path = os.path.join(
+                self.base_dir,
+                f"{system}_HSMP_{self.config['mcsh_max_order']}l_"
+                f"{self.config['mcsh_max_r']:.6f}.h5"
+            )
+            subsampler = SystemSubsampler(
+                system_path=hdf5_path,
+                cutoff_sig=self.config['cutoff_sig'],
+                mcsh_max_order=self.config['mcsh_max_order'],
+                mcsh_step_size=self.config['mcsh_step_size'],
+                mcsh_max_r=self.config['mcsh_max_r'],
+                verbose=True
+            )
+            subsampler.run()
+
+
+# run partitioning scheme 
+def run_partitioning(self, systems: List[str]) -> None:
+        subsampled_dir = "subsampled_folder_ex"
+        for system in systems:
+            system_dir = os.path.join(
+                subsampled_dir,
+                f"cutoff_{self.config['cutoff_sig']}",
+                system
+            )
+            
+            # Load subsampled data
+
+            # Perform partitioning and save results
+            partition_dir = os.path.join(system_dir, "partitioned")
+            os.makedirs(partition_dir, exist_ok=True)
+            
+            # Save partitioned data
+
+# run model training 
+
+
+# perform validation
+# NOTE: validation jupyter notebook examples for unseen molecules are under validation folder
 
 if __name__ == "__main__":
-    process_data_into_h5(molecules_data_folder)
     
+    # TODO: currently config file is read in other functions 
+    # want to read it from the main function instead
+    config_path = Path(__file__).parent / 'config.yml'
+
+    process_data_into_h5(molecules_data_folder)
+
     # TODO turn path setting from main function in save to hdf5 into class function, for now this has been passed to the config file
 
-    # TODO: 
-    # system_type = "molecules_new"
-    # if not os.path.exists(f"./hdf5_molecules_latest_data/{system_type}"):
-    #     os.makedirs(f"./hdf5_molecules_latest_data/{system_type}")
-    
+
 
 
 
