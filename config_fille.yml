@@ -1,0 +1,13 @@
+# please repopulate the file with your settings
+data:
+  molecules_path: "/path/to/molecules/data"  # Path to SPARC DFT data with HSMP features
+  output_path: "./hdf5_molecules_latest_data"  # optional: where to save processed data
+
+system:
+  type: "molecules_new"  # molecules, bulks, cubic_bulks, molecules_new
+  functional: null  # Optional: specify functional type if type is molecules or molecules_new
+  # examples: GGA_PBE, PBE
+
+parameters:
+  mcsh_max_order: 4 # parameters from SPARC DFT calculator with HSMP features
+  mcsh_max_r: 4.0
