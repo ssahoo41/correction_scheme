@@ -20,9 +20,21 @@ def process_data_into_h5(molecules_data_folder):
         config = yaml.safe_load(config_file)
     
     system_type = config['system_type']
+    mcsh_max_order = config['mcsh_max_order']
+    mcsh_max_r = config['mcsh_max_r']
+    functional = config['functional']
     
     # Initialize HDF5Writer with the loaded system_type
-    hdf5_writer = HDF5Writer(molecules_data_folder, system_type)
+    for system in systems:
+        hdf5_filename = "{}_HSMP_{}l_{}_rcut_{:.6f}.h5".format(system, "", mcsh_max_order, mcsh_max_r)
+        hdf5_path = os.path.join(f"./hdf5_molecules_latest_data/{system_type}/{hdf5_filename}")
+        if not os.path.exists(hdf5_path):
+                print("Processing system: {}".format(system))
+                hdf5_writer = HDF5Writer(molecules_data_folder, system_type, system, functional)
+                hdf5_writer.process_system(mcsh_max_order, mcsh_max_r)
+
+# data is now processed into h5, now run the sub-sampling process
+
 
 if __name__ == "__main__":
     process_data_into_h5(molecules_data_folder)
