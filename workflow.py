@@ -6,9 +6,8 @@ from correction_model_workflow.discard_vacuum import DiscardVacuum
 from correction_model_workflow.data_preparation import HDF5Writer
 from correction_model_workflow.system_subsample import SystemSubsampler
 from correction_model_workflow.partitioning_scheme import Partitioner
-
-
-
+from correction_model_workflow.overall_subsample import OverallSubsampler
+from correction_model_workflow.training import EnergyCorrectionFitter
 
 
 # start the workflow from saving data to h5 
@@ -62,23 +61,58 @@ def discard_vacuum(h5_output_path, config):
         processor.process_system(h5_path)
 
 # run sub-sampling process
-def run_subsampling(self, systems):
-        for system in systems:
-            hdf5_path = os.path.join(
-                self.base_dir,
-                f"{system}_HSMP_{self.config['mcsh_max_order']}l_"
-                f"{self.config['mcsh_max_r']:.6f}.h5"
-            )
-            subsampler = SystemSubsampler(
-                system_path=hdf5_path,
-                cutoff_sig=self.config['cutoff_sig'],
-                mcsh_max_order=self.config['mcsh_max_order'],
-                mcsh_step_size=self.config['mcsh_step_size'],
-                mcsh_max_r=self.config['mcsh_max_r'],
-                verbose=True
-            )
-            subsampler.run()
+def run_subsampling(config):
+    """    
+    Args:
+        config (dict)
+    """
+    # Get base directory from config
+    base_dir = f"./hdf5_molecules_latest_data/{config['system_type']}"
+    
+    # Get all HDF5 files in the output directory
+    h5_files = get_h5_files(config['mcsh_max_order'], config['mcsh_max_r'], config['system_type'])
+    
+    if not h5_files:
+        print("No HDF5 files found to process!")
+        return
+    
+    # Process each file
+    for h5_path in h5_files:
+        print(f"Processing subsampling for: {os.path.basename(h5_path)}")
+        
+        # Initialize and run subsampling
+        processor = Subsampling(
+            system_type=config['system_type'],
+            system_path=h5_path,
+            cutoff_sig=config['cutoff_sig'],
+            no_vac_discard=config.get('no_vac_discard', True),  # Default to True if not specified
+            std_scale=config.get('std_scale', False)  # Default to False if not specified
+        )
+        processor.process()
 
+def run_overall_subsampling(config):
+    """    
+    Args:
+        config (dict): Configuration dictionary containing parameters
+    """
+    print("Starting overall subsampling process...")
+    
+    # Initialize overall subsampler
+    overall_subsampler = OverallSubsampler(
+        overall_cutoff_sig=config['overall_cutoff_sig'],
+        system_cutoff_sig=config['cutoff_sig'],  # Using the same cutoff from system subsampling
+        std_scale=config.get('overall_std_scale', True),
+        base_dir=config.get('base_dir', "./")  # Get base directory from config or use default
+    )
+    
+    try:
+        # Run the overall subsampling process
+        subsampled_data, elapsed_time = overall_subsampler.process()
+        print(f"Overall subsampling completed in {elapsed_time:.2f} seconds")
+        print(f"Final number of samples: {len(subsampled_data)}")
+    except Exception as e:
+        print(f"Error during overall subsampling: {str(e)}")
+        raise
 
 # run partitioning scheme 
 def run_partitioning(config):
@@ -103,8 +137,45 @@ def run_partitioning(config):
     partitioner.run_partitioning(h5_files, refdata_path, output_dir)
     print(f"Partitioning complete. Results saved to: {output_dir}")
 
-
 # run model training 
+def run_model_training(config):
+    """
+    EnergyCorrectionFitter
+    Args:
+        config (dict): Configuration dictionary containing training parameters
+    """
+    print("Starting model training process...")
+    
+    try:
+        trainer = EnergyCorrectionFitter(
+            mcsh=config['mcsh_max_order'],
+            rcut=config['mcsh_max_r'],
+            overall_sig=config['overall_cutoff_sig'],
+            cutoff_sig=config['cutoff_sig'],
+            ccsdt_file=config['ccsdt_energy_file'],
+            pbe_file=config['pbe_energy_file'],
+            atomic_number_file=config['atomic_number_file'],
+            count_path=config['count_path'],
+            stdscale=config.get('std_scale', False)
+        )
+        
+        # Run the main training process
+        trainer.main(
+            config['mcsh_max_order'],
+            config['mcsh_max_r'],
+            config['overall_cutoff_sig'],
+            config['cutoff_sig'],
+            config['ccsdt_energy_file'],
+            config['pbe_energy_file'],
+            config['atomic_number_file'],
+            config['count_path']
+        )
+        
+        print("Model training completed successfully!")
+        
+    except Exception as e:
+        print(f"Error during model training: {str(e)}")
+        raise
 
 # perform validation
 # NOTE: validation jupyter notebook examples for unseen molecules are under validation folder
@@ -126,17 +197,15 @@ if __name__ == "__main__":
 
     discard_vacuum(config)
 
-    run_subsampling()
+    run_subsampling() # per system
+
+    run_overall_subsampling(config)
 
     run_partitioning(config)
 
+    run_model_training(config)
 
-
-
-
-
-    
-
+    # now validation steps - see jupyter notebooks
 
     # TODO turn path setting from main function in save to hdf5 into class function, for now this has been passed to the config file
 
