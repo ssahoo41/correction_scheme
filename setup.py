@@ -9,7 +9,7 @@ setup(
     install_requires=[*open('requirements.txt').read().splitlines(),
                       'NNSubsampling @ git++https://github.com/ray38/NNSubsampling.git'],
     python_requires=">=3.9",
-    author="Lisette del Pino & Jagriti Sahoo",
+    author="Lisette del Pino & Sushree Jagriti Sahoo",
     author_email=["ssahoo41@gatech.edu", "lpino3@gatech.edu"],
     description="A package for molecular correction schemes",
     long_description=open("README.md").read(),
