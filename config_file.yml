@@ -1,22 +1,46 @@
-# please repopulate the file with your settings
-data:
-  molecules_path: "/path/to/molecules/data"  # Path to SPARC DFT data with HSMP features
-  # h5_output_path: "./hdf5_molecules_latest_data"  # optional: where to save processed data
+# Common settings used throughout workflow
+general:
+  system_type: "molecules"  # type of data used for training - can only ever be molecules as we want to test the predictive power of training on molecules
+  # validation may be done on adsorption systems
+  mcsh_max_order: 4        # feature expansion depth
+  mcsh_max_r: 4.0         # maximum radius cutoff
+  mcsh_step_size: 0.5     # spacing between features
+  base_dir: "./"          # root directory location
 
-system:
-  type: "molecules" # can remove this
-  functional: null  # Optional: specify functional type if type is molecules or molecules_new
-  # examples: GGA_PBE, PBE
-  # not needed as well 
-  sigma: # gradient of the electron density
-  rho: # use density parameter as rho, sigma and density both retained in the features data
+# Initial data processing step
+data_preparation:
+  molecules_path: "/path/to/molecules/data"  # raw data location
+  functional: null        # DFT functional type - optional
+  output_dir: "./hdf5_molecules_latest_data"  # where processed data goes
 
-parameters:
-  mcsh_max_order: 4 # parameters from SPARC DFT calculator with HSMP features
-  mcsh_max_r: 4.0
+# Remove vaccum energies
+vacuum_discard:
+  # uses settings from general
 
-paramters_for_subsampling:  
-  cutoff_sig: 0.003
-  standard_scaler: False # crucial in earlier parts of workflow to apply scaling to subsampling process
-  verbose: False # change to True for logging results of subsampling process
+# First round of subsampling - system 
+system_subsampling:
+  cutoff_sig: 0.003      # local sampling density
+  no_vac_discard: true   # keep all features
+  std_scale: false       # normalize the data
+  verbose: false         # show detailed output
 
+# Second round subsampling - overall 
+overall_subsampling:
+  overall_cutoff_sig: 0.5  # global sampling density
+  overall_std_scale: true  # normalize combined data
+
+# Split data for training
+partitioning:
+  reference_data_path: "/path/to/reference/data"  # validation data location
+  output_dir: "partitioned_data"  # where splits are saved
+
+# Train the model
+model_training:
+  ccsdt_energy_file: "ccsdt_energy.json"      # accurate energy values
+  pbe_energy_file: "pbe_energy.json"          # approximate energy values
+  atomic_number_file: "atoms_count_mat.json"  # molecular composition data
+  count_path: "../partitioning_scheme/new_data"  # processed feature location
+  cross_validation_type: "kfold"    # validation method
+  num_folds: 5                      # number of splits
+  random_state: 42                  # reproducibility seed
+  max_iterations: 10000             # training limit
