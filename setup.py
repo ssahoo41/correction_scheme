@@ -10,7 +10,7 @@ setup(
                       'NNSubsampling @ git++https://github.com/ray38/NNSubsampling.git'],
     python_requires=">=3.9",
     author="Lisette del Pino & Jagriti Sahoo",
-    author_email=["jsahoo3@gatech.edu", "lpino3@gatech.edu"],
+    author_email=["ssahoo41@gatech.edu", "lpino3@gatech.edu"],
     description="A package for molecular correction schemes",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown"
