@@ -207,8 +207,6 @@ if __name__ == "__main__":
 
     # now validation steps - see jupyter notebooks
 
-    # TODO turn path setting from main function in save to hdf5 into class function, for now this has been passed to the config file
-
 
 
 
