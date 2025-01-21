@@ -1,8 +1,7 @@
 # please repopulate the file with your settings
 data:
   molecules_path: "/path/to/molecules/data"  # Path to SPARC DFT data with HSMP features
-  output_path: "./hdf5_molecules_latest_data"  # optional: where to save processed data
-
+  # h5_output_path: "./hdf5_molecules_latest_data"  # optional: where to save processed data
 
 system:
   type: "molecules" # can remove this
@@ -10,7 +9,7 @@ system:
   # examples: GGA_PBE, PBE
   # not needed as well 
   sigma: # gradient of the electron density
-  rho: # use density as rho
+  rho: # use density parameter as rho, sigma and density both retained in the features data
 
 parameters:
   mcsh_max_order: 4 # parameters from SPARC DFT calculator with HSMP features
@@ -19,4 +18,5 @@ parameters:
 paramters_for_subsampling:  
   cutoff_sig: 0.003
   standard_scaler: False # crucial in earlier parts of workflow to apply scaling to subsampling process
+  verbose: False # change to True for logging results of subsampling process
 

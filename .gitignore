@@ -48,7 +48,7 @@ correction_model_workflow/mcsh_2_rcut_2.0.zip
 
 # Jupyter Notebook
 .ipynb_checkpoints
-*.ipynb
+# *.ipynb
 
 # Distribution / packaging
 .Python

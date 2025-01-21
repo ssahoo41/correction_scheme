@@ -410,7 +410,7 @@ if __name__ == "__main__":
     #filepath = sys.argv[1]
     #system type: "single_atoms", "molecules", "bulks", "cubic_bulks"
     #system_type = "Pd" #sys.argv[2]
-    system_type = "molecules_new"
+    system_type = "molecules"
     if not os.path.exists(f"./hdf5_molecules_latest_data/{system_type}"):
         os.makedirs(f"./hdf5_molecules_latest_data/{system_type}")
     
