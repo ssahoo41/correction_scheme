@@ -41,6 +41,6 @@ model_training:
   atomic_number_file: "atoms_count_mat.json"  # molecular composition data
   count_path: "../partitioning_scheme/new_data"  # processed feature location
   cross_validation_type: "kfold"    # validation method
-  num_folds: 5                      # number of splits
+  num_folds: 5                      # number of splits for k fold
   random_state: 42                  # reproducibility seed
   max_iterations: 10000             # training limit
