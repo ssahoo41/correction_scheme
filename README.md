@@ -8,7 +8,7 @@ Please read the [Quick Start](tutorials/quick_start.md) to get quickly started w
 
 We have also made the training workflow available. Please read the Full Workflow Tutorial [Full Workflow Tutorial](tutorials/full_workflow_usage.md) to use the workflow to train your electron density-based correction scheme model. 
 
-Initial data was generated using [SPARC](). 
+The descriptor data can be generated using [SPARC](https://github.com/ssahoo41/dev_SPARC_PBEq). 
 
 <!-- https://pmc.ncbi.nlm.nih.gov/articles/PMC3928866/ -->
 
