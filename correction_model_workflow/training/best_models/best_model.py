@@ -6,7 +6,7 @@ import pickle
 import numpy as np
 import pandas as pd
 from joblib import dump, load
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.model_selection import KFold, train_test_split
 from sklearn.linear_model import Lasso, Ridge, LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error
@@ -49,61 +49,32 @@ def sort_count_array(count_file, target_dict):
     df_sorted = df.sort_values(by='sort_order').iloc[:, 2:].drop(columns=['sort_order'])
     return df_sorted.to_numpy(), np.array(list(target_dict.values())), list(target_dict.keys())
 
-def write_csv(filename, data, delimiter=',', header=None):
-    """Writes data to a CSV file."""
-    with open(filename, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=delimiter, quotechar='|', quoting=csv.QUOTE_MINIMAL)
-        if header:
-            writer.writerow(header)
-        writer.writerows(data)
-
-def model_fitting(lasso_model_filepath, final_count_arr, target, systems):
-    # ensemble models
-    models = []
-    num_splits = 5
-    for i in range(num_splits):
-        X_train, X_test, y_train, y_test = train_test_split(final_count_arr, target, test_size=0.2)
-        scaler = StandardScaler()
-        # save the scaler fitted to training data
-        X_train = scaler.fit_transform(X_train)
-        pickle.dump(scaler, open(f"scaler_pbe_{i}.pkl", "wb"))
-        X_test = scaler.transform(X_test)
-        lasso = Lasso(fit_intercept=False, max_iter=10000, selection='random', alpha=1e-3)
-        lasso.fit(X_train, y_train)
-        coef_filename = f"{i}_fold_coef.npy"
-        np.save(coef_filename, lasso.coef_)
-        models.append(lasso)
-        y_pred = lasso.predict(X_test)
-        print(f"MAE: {mean_absolute_error(y_test, y_pred)}")
-        dump(models, os.path.join(lasso_model_filepath, 'lasso_ensemble_models.joblib'))
-
-def single_model_fitting(lasso_model_filepath, final_count_arr, target, systems):
-    #X_train, X_test, y_train, y_test = train_test_split(final_count_arr, target, test_size=0.2)
-    scaler = StandardScaler()
+def single_model_fitting(lasso_model_filepath, final_count_arr, target, systems, best_alpha):
+    scaler = MinMaxScaler()
     X_train = scaler.fit_transform(final_count_arr)
-    pickle.dump(scaler, open(f"scaler_pbe_true.pkl", "wb"))
-    lasso = Lasso(fit_intercept=False, max_iter=10000, selection='random', alpha=1e-5)
+    # save scaler in lasso_model_filepath
+    lasso = Lasso(fit_intercept=False, max_iter=20000, selection='random', alpha=best_alpha)
     lasso.fit(X_train, target)
-    coef_filename = "fold_coef_pbe_true.npy"
+    pickle.dump(scaler, open(os.path.join(lasso_model_filepath, f"scaler.pkl"), "wb"))
+    coef_filename = os.path.join(lasso_model_filepath, "fold_coef.npy")
     np.save(coef_filename, lasso.coef_)
     y_pred = lasso.predict(X_train)
     print(f"MAE: {mean_absolute_error(target, y_pred)}")
-    dump(lasso, os.path.join(lasso_model_filepath, 'best_lasso_model_pbe.joblib'))
+    dump(lasso, os.path.join(lasso_model_filepath, 'best_lasso_model.joblib'))
 
-def main(overall_sig, cutoff_sig, ccsdt_file, pbe_file, atomic_number_file, count_path):
+def main(overall_sig, cutoff_sig, ccsdt_file, pbe_file, atomic_number_file, count_path, best_alpha):
     # Load energy and atomic number data
     ccsdt_energy = load_json(ccsdt_file)
     pbe_energy = load_json(pbe_file)
     atomic_number_dict = load_json(atomic_number_file)
 
     target_dict = calculate_target_variable(ccsdt_energy, pbe_energy, atomic_number_dict)
-    #systems = list(target_dict.keys())
     print(np.mean(abs(np.array(list(target_dict.values())))))
     count_file = os.path.join(count_path, f"count_array_overall_{overall_sig}_system_{cutoff_sig}.csv")
     final_count_arr, target, systems = sort_count_array(count_file, target_dict)
     print(f"Shape of count array is {final_count_arr.shape}")
     # call the function for LASSO regression
-    single_model_fitting(lasso_model_filepath, final_count_arr, target, systems)
+    single_model_fitting(lasso_model_filepath, final_count_arr, target, systems, best_alpha)
     return
 
 # Script Execution Entry Point
@@ -111,17 +82,19 @@ if __name__ == "__main__":
     ccsdt_file = "ccsdt_energy.json"
     pbe_file = "pbe_energy.json"
     atomic_number_file = "atoms_count_mat.json"
-    count_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/NNS_subsampling/partitioning_scheme/pbe_csv_true"
-    if len(sys.argv) < 3:
-        print("Usage: python script.py <overall_sig> <cutoff_sig>")
-        sys.exit(1)
-    
-    overall_sig = float(sys.argv[1])
-    sys_sig = float(sys.argv[2])
-    #stdscale = sys.argv[3]
 
-    lasso_model_filepath = os.path.join("pbe_ensemble_models", f"model_all_{overall_sig}_sys_{sys_sig}_lasso")
+    mcsh_order = int(sys.argv[1])
+    rcut = float(sys.argv[2])
+    overall_sig = float(sys.argv[3])
+    sys_sig = float(sys.argv[4])
+    best_alpha = float(sys.argv[5])
+
+    base_path = "/storage/home/hcoda1/0/ssahoo41/cedar_storage/ssahoo41/exact_exchange_work/thesis_datagen/publication_purpose/subsampling_script/partitioning"
+    count_path = os.path.join(base_path, f"mcsh_{mcsh_order}_rcut_{rcut}")
+    print(f"Count path: {count_path}")
+
+    lasso_model_filepath = os.path.join("train_best_model_minmax_form", f"mcsh_{mcsh_order}_rcut_{rcut}", f"model_all_{overall_sig}_sys_{sys_sig}_lasso")
     os.makedirs(lasso_model_filepath, exist_ok=True)
-
+    # save enerything in lasso_model_filepath
     # Execute the main function with the specified arguments
-    main(overall_sig, sys_sig, ccsdt_file, pbe_file, atomic_number_file, count_path)
+    main(overall_sig, sys_sig, ccsdt_file, pbe_file, atomic_number_file, count_path, best_alpha)

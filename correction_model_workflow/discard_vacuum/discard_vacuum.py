@@ -34,7 +34,7 @@ def get_feature_list_hsmp(max_mcsh_order, step_size, max_r):
 def read_hdf5_data(filepath, num_features, hsmp_filenames):
     with h5py.File(filepath, 'r') as data:
         # Accessing the groups and datasets
-        functional_grp = data["functional_database/PBE"]
+        functional_grp = data["functional_database/PBE0"]
         Nx, Ny, Nz = functional_grp["metadata/FD_GRID"][:]
         feature_grp = functional_grp["feature"]
         # Pre-allocating arrays
@@ -52,18 +52,20 @@ def discard_vacuum(feature_arr):
     filtered_feat = feature_arr[feature_arr[:, 0] > 1e-5]
     return filtered_feat
 
-if len(sys.argv) < 1:
+# save this data to the same h5 file, do subsampling and get the count array (TODO)
+
+if len(sys.argv) < 2:
     print(
-        "Usage: python discard_vacuum.py <system_path>")
+        "Usage: python discard_vacuum.py <system_type> <system_path>")
     sys.exit(1)
 
-#system_type = sys.argv[1]
-system_path = sys.argv[1]
+system_type = sys.argv[1]
+system_path = sys.argv[2]
 system_name = system_path.split("/")[-1].split("_HSMP")[0]
 
-mcsh_max_order = 4
+mcsh_max_order = 2
 mcsh_step_size = 0.5
-mcsh_max_r = 4.0
+mcsh_max_r = 3.0
 hsmp_filenames, num_features = get_feature_list_hsmp(mcsh_max_order, mcsh_step_size, mcsh_max_r)
 
 print(f"Discarding vacuum for {system_name}...")
@@ -73,9 +75,8 @@ filtered_feat = discard_vacuum(feature_arr)
 end_time = time.time()
 print(f"total time: {end_time - start_time}")
 print(filtered_feat.shape)
+# save this data to the same h5 file, do subsampling and get the count array (tuesday task)
 with h5py.File(system_path, 'a') as data:
-    functional_grp = data["functional_database/PBE"]
-    if "filtered_feature" in functional_grp:
-        del functional_grp["filtered_feature"]
+    functional_grp = data["functional_database/PBE0"]
     functional_grp.create_dataset("filtered_feature", data=filtered_feat)
     print(f"Discarded vacuum of {system_name}...")
