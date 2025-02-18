@@ -5,13 +5,13 @@ This is a full tutorial if you wish to replicate the **full process for training
 
 For applications of the model, please use the [Quick Start](tutorials/quick_start.md) guide instead. 
 
-First, you must have generated molecule data using the latest experimental version of SPARC, dev-SPARC, with HSMP/multipole features, linked here:
+First, you must have generated molecule data using the development version of [SPARC](https://github.com/ssahoo41/dev_SPARC_PBEq) with HSMP/multipole features implemented.
 
 The outputs of this process will look like this:
 
 
 
-Please load those into a `molecules` folder of your choosing, where each molecule is its own folder (this should match the outputs of dev SPARC)
+Please load those into a `molecules` folder of your choosing, where each molecule is its own folder (this should match the outputs of dev_SPARC)
 
 First, install the package:
 

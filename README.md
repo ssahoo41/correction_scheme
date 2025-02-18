@@ -6,9 +6,9 @@ A Python package to improve energies from the Density Functional Theory based on
 
 Please read the [Quick Start](tutorials/quick_start.md) to get quickly started with the pre-trained models. 
 
-We have also made the training workflow available. Please read the Full Workflow Tutorial [Full Workflow Tutorial](tutorials/full_workflow_usage.md) to use the workflow to train your own electronic correction scheme model. 
+We have also made the training workflow available. Please read the Full Workflow Tutorial [Full Workflow Tutorial](tutorials/full_workflow_usage.md) to use the workflow to train your electron density-based correction scheme model. 
 
-Initial data was generated using [SPARC](). 
+The descriptor data can be generated using [SPARC](https://github.com/ssahoo41/dev_SPARC_PBEq). 
 
 <!-- https://pmc.ncbi.nlm.nih.gov/articles/PMC3928866/ -->
 
