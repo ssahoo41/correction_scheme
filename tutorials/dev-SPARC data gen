@@ -1,1 +1,15 @@
 # How to Generate Fingerprinted Data Using Dev SPARC
+
+First, you must compile SPARC. 
+
+See: https://github.com/ssahoo41/dev_SPARC_PBEq for full details 
+
+https://github.com/ssahoo41/dev_SPARC_PBEq?tab=readme-ov-file#3-input-files
+
+For the purposes of this code, you must have input files of the form .inpt, .ion, and .psp8, read above on details for how to get them. 
+
+Please note that further example usage can be found here:
+
+https://medford-group.github.io/training-materials/docs/Running_SPARC_on_PACE.html#dft-on-pace
+
+
