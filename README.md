@@ -42,6 +42,75 @@ Descriptor data can be generated using the development version of SPARC with HSM
 
 ## Installation of Correction Scheme Package
 
+If you choose to run the correction scheme package locally, we reccomend using pyenv to manage your environments. 
+
+Correction Scheme package was tested with Python 3.9 and 3.12. 
+
+### Prerequisites for Local Run
+
+- Git
+- pyenv (for Python version management)
+- pip (Python package installer)
+
+
+
+### Step 1: Install pyenv (if not already installed)
+
+#### On macOS:
+```bash
+brew update
+brew install pyenv
+```
+
+#### On Linux:
+```bash
+curl https://pyenv.run | bash
+```
+
+Then add the following to your shell configuration file (.bashrc, .zshrc, etc.):
+```bash
+export PATH="$HOME/.pyenv/bin:$PATH"
+eval "$(pyenv init --path)"
+eval "$(pyenv init -)"
+```
+
+### Step 2: Install Python using pyenv
+
+Install Python 3.9 or newer:
+```bash
+pyenv install 3.9.13
+```
+
+### Step 3: Clone the repository
+
+```bash
+git clone https://github.com/ssahoo41/correction_scheme.git
+cd correction_scheme
+```
+
+### Step 4: Create and activate a virtual environment
+
+```bash
+pyenv local 3.9.13  # Set local Python version
+python -m venv venv  # Create virtual environment
+source venv/bin/activate  # On Windows, use: venv\Scripts\activate
+```
+
+### Step 5: Install dependencies
+
+```bash
+pip install --upgrade pip
+pip install -r requirements.txt
+pip install -e .  # Install the package in development mode
+```
+
+### Step 6: Verify installation
+
+```bash
+python -c "import correction_scheme; print('Installation successful!')"
+```
+
+
 ```bash
 # Clone the repository
 git clone https://github.com/ssahoo41/correction_scheme.git
@@ -50,7 +119,6 @@ cd correction_scheme
 # Install the package and dependencies
 pip install -e .
 ```
-
 
 ## Requirements
 
